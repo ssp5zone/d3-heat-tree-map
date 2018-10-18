@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+  <link type="text/css" rel="stylesheet" href="style.css" />
+  <script type="text/javascript" src="d3/d3.js"></script>
+  <script type="text/javascript" src="d3/d3.layout.js"></script>
+  <style type="text/css">
+    .chart {
+      display: block;
+      margin: auto;
+      margin-top: 40px;
+    }
+
+    text {
+      font-size: 11px;
+    }
+
+    rect {
+      fill: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="header">
+    <div>
+      <p style="margin: auto;">Tree param</p>
+      <select>
+        <option value="Business_Application_Value">Business_Application_Value</option>
+        <option value="Application_Maturity">Application_Maturity</option>
+        <option value="Cost">Cost</option>
+      </select>
+    </div>
+    <br><br>
+    <div>
+      <p style="margin: auto;">Heat param</p>
+      <select id="heatSelect">
+        <option value="Business_Application_Value">Business_Application_Value</option>
+        <option value="Application_Maturity">Application_Maturity</option>
+        <option value="Cost">Cost</option>
+      </select>
+    </div>
+  </div>
+  <div id="body">
+  </div>
+  <script type="text/javascript">
+    var w = 563,
+      h = 509,
+      x = d3.scale.linear().range([0, w]),
+      y = d3.scale.linear().range([0, h]),
+      color = d3.scale.linear().range(["white", 'rgb(59, 92, 123)']).domain([0, 5]),
+      root,
+      node;
+
+
+    var treemap = d3.layout.treemap()
+      .round(false)
+      .size([w, h])
+      .sticky(true)
+      .value(function (d) {
+        return d.Business_Application_Value;
+      }); //Needs to be dynamic
+
+    var svg = d3.select("#body").append("div")
+      .attr("class", "chart")
+      .style("width", w + "px")
+      .style("height", h + "px")
+      .append("svg:svg")
+      .attr("width", w)
+      .attr("height", h)
+      .append("svg:g")
+      .attr("transform", "translate(.5,.5)");
+
+    data = getFlare();
+
+    node = root = data;
+
+    var nodes = treemap.nodes(root)
+      .filter(function (d) {
+        return !d.children;
+      });
+
+    var cell = svg.selectAll("g")
+      .data(nodes)
+      .enter().append("svg:g")
+      .attr("class", "cell")
+      .attr("transform", function (d) {
+        return "translate(" + d.x + "," + d.y + ")";
+      });
+
+    cell.append("svg:rect")
+      .attr("width", function (d) {
+        return d.dx - 1;
+      })
+      .attr("height", function (d) {
+        return d.dy - 1;
+      })
+      .style("fill", function (d) {
+        return color(d.Business_Application_Value);
+      }); // Can be fixed?? How may Business units are there??
+
+    cell.append("svg:text")
+      .attr("x", function (d) {
+        return d.dx / 2;
+      })
+      .attr("y", function (d) {
+        return d.dy / 2;
+      })
+      .attr("dy", ".35em") //Use this instead of 12
+      .attr("text-anchor", "middle")
+      .text(function (d) {
+        return d.BU;
+      }) // Can be fixed?? How may Business units are there??
+      .style("opacity", function (d) {
+        d.w = this.getComputedTextLength();
+        return d.dx > d.w ? 1 : 0;
+      });
+
+    //d3.select(window).on("click", function() { zoom(root); }); //Because no tree elements
+
+    d3.select("select").on("change", function () {
+
+      //treemap.value(this.value == "size" ? size : count).nodes(root);
+
+      //treemap.value(this.value == "Application_Maturity" ? size : count).nodes(root);
+
+      var localVal = this.value; //Yay!!!! Working!!!!!!
+      treemap.value(function (d) {
+        return d[localVal]
+      }).nodes(root);
+
+      zoom(node);
+    });
+
+    d3.select('#heatSelect').on("change", function () {
+      var localVal = this.value;
+      svg.selectAll("g rect").transition().duration(d3.event.altKey ? 7500 : 1000).style("fill", function (d) {
+        return color(d[localVal]);
+      });
+    });
+
+    function reMap(argument) {
+      treemap.value(function (d) {
+        return d[argument];
+      });
+    }
+
+    function zoom(d) {
+      var kx = w / d.dx,
+        ky = h / d.dy;
+      x.domain([d.x, d.x + d.dx]);
+      y.domain([d.y, d.y + d.dy]);
+
+      var t = svg.selectAll("g.cell").transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function (d) {
+          return "translate(" + x(d.x) + "," + y(d.y) + ")";
+        });
+
+      t.select("rect")
+        .attr("width", function (d) {
+          return Math.abs(kx * d.dx - 1);
+        })
+        .attr("height", function (d) {
+          return Math.abs(ky * d.dy - 1);
+        })
+
+      t.select("text")
+        .attr("x", function (d) {
+          return kx * d.dx / 2;
+        })
+        .attr("y", function (d) {
+          return ky * d.dy / 2;
+        })
+        .style("opacity", function (d) {
+          return (kx * d.dx > d.w) && (d.dy > 12) ? 1 : 0;
+        }); //12 px for dy is for current font. Warning: May vary!!!!
+
+      node = d;
+      d3.event.stopPropagation();
+    }
+
+    function getFlare() {
+      return {
+        "BU": "Root",
+        children: [{
+          "bupath": "515.",
+          "Cost": 1.8026055907830596,
+          "Risk": 0,
+          "Business_Application_Value": 4.684863961301744,
+          "Application_Maturity": 3.4059530263766646,
+          "Application_Performance": 0,
+          "BU": "BU15",
+          "bunum": 515
+        }, {
+          "bupath": "574.",
+          "Cost": 1.6352569265291095,
+          "Risk": 0,
+          "Business_Application_Value": 0.2540158899500966,
+          "Application_Maturity": 1.3085683761164546,
+          "Application_Performance": 0,
+          "BU": "BU74",
+          "bunum": 574
+        }, {
+          "bupath": "582.",
+          "Cost": 3.949136990122497,
+          "Risk": 0,
+          "Business_Application_Value": 3.1630511907860637,
+          "Application_Maturity": 3.23405206669122,
+          "Application_Performance": 0,
+          "BU": "BU82",
+          "bunum": 582
+        }, {
+          "bupath": "538.",
+          "Cost": 0.48234892077744007,
+          "Risk": 0,
+          "Business_Application_Value": 3.019792498089373,
+          "Application_Maturity": 4.659043913707137,
+          "Application_Performance": 0,
+          "BU": "BU38",
+          "bunum": 538
+        }, {
+          "bupath": "545.",
+          "Cost": 2.9431962920352817,
+          "Risk": 0,
+          "Business_Application_Value": 3.068300299346447,
+          "Application_Maturity": 4.075373210944235,
+          "Application_Performance": 0,
+          "BU": "BU45",
+          "bunum": 545
+        }, {
+          "bupath": "549.",
+          "Cost": 1.8331957049667835,
+          "Risk": 0,
+          "Business_Application_Value": 1.8646221281960607,
+          "Application_Maturity": 2.2287757974117994,
+          "Application_Performance": 0,
+          "BU": "BU49",
+          "bunum": 549
+        }, {
+          "bupath": "556.",
+          "Cost": 2.497060908935964,
+          "Risk": 0,
+          "Business_Application_Value": 4.923718101345003,
+          "Application_Maturity": 2.17329996638,
+          "Application_Performance": 0,
+          "BU": "BU56",
+          "bunum": 556
+        }, {
+          "bupath": "587.",
+          "Cost": 3.5022507840767503,
+          "Risk": 0,
+          "Business_Application_Value": 1.077223219908774,
+          "Application_Maturity": 4.746933178976178,
+          "Application_Performance": 0,
+          "BU": "BU87",
+          "bunum": 587
+        }, {
+          "bupath": "530.",
+          "Cost": 1.4106297539547086,
+          "Risk": 0,
+          "Business_Application_Value": 2.8006633976474404,
+          "Application_Maturity": 2.124936175532639,
+          "Application_Performance": 0,
+          "BU": "BU30",
+          "bunum": 530
+        }, {
+          "bupath": "584.",
+          "Cost": 0.8208172768354416,
+          "Risk": 0,
+          "Business_Application_Value": 1.430581472814083,
+          "Application_Maturity": 0.7634090026840568,
+          "Application_Performance": 0,
+          "BU": "BU84",
+          "bunum": 584
+        }, {
+          "bupath": "511.",
+          "Cost": 0.5759289767593145,
+          "Risk": 0,
+          "Business_Application_Value": 4.2006053030490875,
+          "Application_Maturity": 0.02258178312331438,
+          "Application_Performance": 0,
+          "BU": "BU11",
+          "bunum": 511
+        }, {
+          "bupath": "544.",
+          "Cost": 4.168799486942589,
+          "Risk": 0,
+          "Business_Application_Value": 0.6353736948221922,
+          "Application_Maturity": 4.85207187011838,
+          "Application_Performance": 0,
+          "BU": "BU44",
+          "bunum": 544
+        }, {
+          "bupath": "502.",
+          "Cost": 3.3173693669959903,
+          "Risk": 0,
+          "Business_Application_Value": 2.6456596050411463,
+          "Application_Maturity": 4.879962559789419,
+          "Application_Performance": 0,
+          "BU": "BU2",
+          "bunum": 502
+        }, {
+          "bupath": "537.",
+          "Cost": 0.37242832593619823,
+          "Risk": 0,
+          "Business_Application_Value": 0.04583263769745827,
+          "Application_Maturity": 4.142914959229529,
+          "Application_Performance": 0,
+          "BU": "BU37",
+          "bunum": 537
+        }, {
+          "bupath": "523.",
+          "Cost": 3.935340279713273,
+          "Risk": 0,
+          "Business_Application_Value": 3.2275289576500654,
+          "Application_Maturity": 1.2556984927505255,
+          "Application_Performance": 0,
+          "BU": "BU23",
+          "bunum": 523
+        }, {
+          "bupath": "533.",
+          "Cost": 2.2488636756315827,
+          "Risk": 0,
+          "Business_Application_Value": 2.514034020714462,
+          "Application_Maturity": 1.4388186624273658,
+          "Application_Performance": 0,
+          "BU": "BU33",
+          "bunum": 533
+        }, {
+          "bupath": "575.",
+          "Cost": 3.81049744784832,
+          "Risk": 0,
+          "Business_Application_Value": 1.6157554043456912,
+          "Application_Maturity": 1.776085291057825,
+          "Application_Performance": 0,
+          "BU": "BU75",
+          "bunum": 575
+        }, {
+          "bupath": "526.",
+          "Cost": 4.355815099552274,
+          "Risk": 0,
+          "Business_Application_Value": 0.8320973021909595,
+          "Application_Maturity": 0.00009092967957258224,
+          "Application_Performance": 0,
+          "BU": "BU26",
+          "bunum": 526
+        }, {
+          "bupath": "560.",
+          "Cost": 1.8449402693659067,
+          "Risk": 0,
+          "Business_Application_Value": 4.604385914281011,
+          "Application_Maturity": 4.1875697718933225,
+          "Application_Performance": 0,
+          "BU": "BU60",
+          "bunum": 560
+        }, {
+          "bupath": "519.",
+          "Cost": 2.2765244729816914,
+          "Risk": 0,
+          "Business_Application_Value": 2.0383060351014137,
+          "Application_Maturity": 0.1265766192227602,
+          "Application_Performance": 0,
+          "BU": "BU19",
+          "bunum": 519
+        }, {
+          "bupath": "568.",
+          "Cost": 3.9007005048915744,
+          "Risk": 0,
+          "Business_Application_Value": 2.8390279272571206,
+          "Application_Maturity": 1.9569656066596508,
+          "Application_Performance": 0,
+          "BU": "BU68",
+          "bunum": 568
+        }, {
+          "bupath": "599.",
+          "Cost": 4.070523902773857,
+          "Risk": 0,
+          "Business_Application_Value": 1.315331500954926,
+          "Application_Maturity": 2.444855999201536,
+          "Application_Performance": 0,
+          "BU": "BU99",
+          "bunum": 599
+        }, {
+          "bupath": "543.",
+          "Cost": 0.8325359551236033,
+          "Risk": 0,
+          "Business_Application_Value": 2.9884643387049437,
+          "Application_Maturity": 3.455535415560007,
+          "Application_Performance": 0,
+          "BU": "BU43",
+          "bunum": 543
+        }, {
+          "bupath": "586.",
+          "Cost": 2.7421872969716787,
+          "Risk": 0,
+          "Business_Application_Value": 0.40476568043231964,
+          "Application_Maturity": 3.5537785990163684,
+          "Application_Performance": 0,
+          "BU": "BU86",
+          "bunum": 586
+        }, {
+          "bupath": "594.",
+          "Cost": 3.583154324442148,
+          "Risk": 0,
+          "Business_Application_Value": 4.316084468737245,
+          "Application_Maturity": 2.4367913650348783,
+          "Application_Performance": 0,
+          "BU": "BU94",
+          "bunum": 594
+        }, {
+          "bupath": "563.",
+          "Cost": 2.8100588731467724,
+          "Risk": 0,
+          "Business_Application_Value": 3.402052912861109,
+          "Application_Maturity": 3.9638054836541414,
+          "Application_Performance": 0,
+          "BU": "BU63",
+          "bunum": 563
+        }, {
+          "bupath": "552.",
+          "Cost": 3.2140008825808764,
+          "Risk": 0,
+          "Business_Application_Value": 4.699496943503618,
+          "Application_Maturity": 3.8720602123066783,
+          "Application_Performance": 0,
+          "BU": "BU52",
+          "bunum": 552
+        }, {
+          "bupath": "600.",
+          "Cost": 2.3769803903996944,
+          "Risk": 0,
+          "Business_Application_Value": 2.366291005164385,
+          "Application_Maturity": 0.7364765973761678,
+          "Application_Performance": 0,
+          "BU": "BU100",
+          "bunum": 600
+        }, {
+          "bupath": "529.",
+          "Cost": 1.7814415553584695,
+          "Risk": 0,
+          "Business_Application_Value": 1.763301081955433,
+          "Application_Maturity": 4.429623172618449,
+          "Application_Performance": 0,
+          "BU": "BU29",
+          "bunum": 529
+        }, {
+          "bupath": "6.",
+          "Cost": 2.2872983617708087,
+          "Risk": 0,
+          "Business_Application_Value": 3.758344096131623,
+          "Application_Maturity": 3.0596224823966622,
+          "Application_Performance": 0,
+          "BU": "Business Unit3",
+          "bunum": 6
+        }, {
+          "bupath": "509.",
+          "Cost": 2.191047170199454,
+          "Risk": 0,
+          "Business_Application_Value": 0.35427731927484274,
+          "Application_Maturity": 2.447326094843447,
+          "Application_Performance": 0,
+          "BU": "BU9",
+          "bunum": 509
+        }, {
+          "bupath": "521.",
+          "Cost": 3.799559040926397,
+          "Risk": 0,
+          "Business_Application_Value": 4.2042904160916805,
+          "Application_Maturity": 0.05163803696632385,
+          "Application_Performance": 0,
+          "BU": "BU21",
+          "bunum": 521
+        }, {
+          "bupath": "516.",
+          "Cost": 4.89155450835824,
+          "Risk": 0,
+          "Business_Application_Value": 3.015834470279515,
+          "Application_Maturity": 1.4731179596856236,
+          "Application_Performance": 0,
+          "BU": "BU16",
+          "bunum": 516
+        }, {
+          "bupath": "553.",
+          "Cost": 0.7537616323679686,
+          "Risk": 0,
+          "Business_Application_Value": 2.0814149361103773,
+          "Application_Maturity": 1.2897497555240989,
+          "Application_Performance": 0,
+          "BU": "BU53",
+          "bunum": 553
+        }, {
+          "bupath": "542.",
+          "Cost": 1.8776121269911528,
+          "Risk": 0,
+          "Business_Application_Value": 2.08793927449733,
+          "Application_Maturity": 3.9550438057631254,
+          "Application_Performance": 0,
+          "BU": "BU42",
+          "bunum": 542
+        }, {
+          "bupath": "570.",
+          "Cost": 4.031888674944639,
+          "Risk": 0,
+          "Business_Application_Value": 3.604086576960981,
+          "Application_Maturity": 3.5409971373155713,
+          "Application_Performance": 0,
+          "BU": "BU70",
+          "bunum": 570
+        }, {
+          "bupath": "592.",
+          "Cost": 3.3163175731897354,
+          "Risk": 0,
+          "Business_Application_Value": 0.3687335178256035,
+          "Application_Maturity": 0.16033446416258812,
+          "Application_Performance": 0,
+          "BU": "BU92",
+          "bunum": 592
+        }, {
+          "bupath": "555.",
+          "Cost": 3.467593025416136,
+          "Risk": 0,
+          "Business_Application_Value": 0.6259979913011193,
+          "Application_Maturity": 3.921874505467713,
+          "Application_Performance": 0,
+          "BU": "BU55",
+          "bunum": 555
+        }, {
+          "bupath": "559.",
+          "Cost": 4.4284021854400635,
+          "Risk": 0,
+          "Business_Application_Value": 1.8151992838829756,
+          "Application_Maturity": 3.3787368424236774,
+          "Application_Performance": 0,
+          "BU": "BU59",
+          "bunum": 559
+        }, {
+          "bupath": "535.",
+          "Cost": 4.728771783411503,
+          "Risk": 0,
+          "Business_Application_Value": 3.206871598958969,
+          "Application_Maturity": 1.9689195370301604,
+          "Application_Performance": 0,
+          "BU": "BU35",
+          "bunum": 535
+        }, {
+          "bupath": "531.",
+          "Cost": 1.5482861921191216,
+          "Risk": 0,
+          "Business_Application_Value": 4.985370198264718,
+          "Application_Maturity": 4.80950930621475,
+          "Application_Performance": 0,
+          "BU": "BU31",
+          "bunum": 531
+        }, {
+          "bupath": "571.",
+          "Cost": 4.846095102839172,
+          "Risk": 0,
+          "Business_Application_Value": 0.09200798347592354,
+          "Application_Maturity": 4.746131617575884,
+          "Application_Performance": 0,
+          "BU": "BU71",
+          "bunum": 571
+        }, {
+          "bupath": "60.",
+          "Cost": 3.258755560964346,
+          "Risk": 0,
+          "Business_Application_Value": 0.015736473724246025,
+          "Application_Maturity": 0.44467625208199024,
+          "Application_Performance": 0,
+          "BU": "Business Unit5",
+          "bunum": 60
+        }, {
+          "bupath": "576.",
+          "Cost": 3.3101316448301077,
+          "Risk": 0,
+          "Business_Application_Value": 3.014387427829206,
+          "Application_Maturity": 4.685378172434866,
+          "Application_Performance": 0,
+          "BU": "BU76",
+          "bunum": 576
+        }, {
+          "bupath": "590.",
+          "Cost": 1.4228582754731178,
+          "Risk": 0,
+          "Business_Application_Value": 4.312794199213386,
+          "Application_Maturity": 3.814133103005588,
+          "Application_Performance": 0,
+          "BU": "BU90",
+          "bunum": 590
+        }, {
+          "bupath": "550.",
+          "Cost": 1.5941279428079724,
+          "Risk": 0,
+          "Business_Application_Value": 2.359454073011875,
+          "Application_Maturity": 0.6995241111144423,
+          "Application_Performance": 0,
+          "BU": "BU50",
+          "bunum": 550
+        }, {
+          "bupath": "561.",
+          "Cost": 0.26137720327824354,
+          "Risk": 0,
+          "Business_Application_Value": 2.932252329774201,
+          "Application_Maturity": 0.9814894618466496,
+          "Application_Performance": 0,
+          "BU": "BU61",
+          "bunum": 561
+        }, {
+          "bupath": "579.",
+          "Cost": 2.939082053489983,
+          "Risk": 0,
+          "Business_Application_Value": 1.6313969483599067,
+          "Application_Maturity": 3.0905684689059854,
+          "Application_Performance": 0,
+          "BU": "BU79",
+          "bunum": 579
+        }, {
+          "bupath": "598.",
+          "Cost": 1.9897679006680846,
+          "Risk": 0,
+          "Business_Application_Value": 3.185918261297047,
+          "Application_Maturity": 0.3933061007410288,
+          "Application_Performance": 0,
+          "BU": "BU98",
+          "bunum": 598
+        }, {
+          "bupath": "510.",
+          "Cost": 1.235574008896947,
+          "Risk": 0,
+          "Business_Application_Value": 2.610076181590557,
+          "Application_Maturity": 2.3864501528441906,
+          "Application_Performance": 0,
+          "BU": "BU10",
+          "bunum": 510
+        }, {
+          "bupath": "580.",
+          "Cost": 4.904317939653993,
+          "Risk": 0,
+          "Business_Application_Value": 3.171766293235123,
+          "Application_Maturity": 4.197104359045625,
+          "Application_Performance": 0,
+          "BU": "BU80",
+          "bunum": 580
+        }, {
+          "bupath": "4.",
+          "Cost": 3.420843626372516,
+          "Risk": 0,
+          "Business_Application_Value": 3.426029342226684,
+          "Application_Maturity": 4.141751052811742,
+          "Application_Performance": 0,
+          "BU": "Business Unit4",
+          "bunum": 4
+        }, {
+          "bupath": "566.",
+          "Cost": 1.2737134797498584,
+          "Risk": 0,
+          "Business_Application_Value": 1.6366479685530066,
+          "Application_Maturity": 4.0072105918079615,
+          "Application_Performance": 0,
+          "BU": "BU66",
+          "bunum": 566
+        }, {
+          "bupath": "557.",
+          "Cost": 2.1853385167196393,
+          "Risk": 0,
+          "Business_Application_Value": 3.2863010838627815,
+          "Application_Maturity": 1.9449943536892533,
+          "Application_Performance": 0,
+          "BU": "BU57",
+          "bunum": 557
+        }, {
+          "bupath": "527.",
+          "Cost": 3.942981706932187,
+          "Risk": 0,
+          "Business_Application_Value": 0.7667967770248652,
+          "Application_Maturity": 0.04697780590504408,
+          "Application_Performance": 0,
+          "BU": "BU27",
+          "bunum": 527
+        }, {
+          "bupath": "539.",
+          "Cost": 4.1143127251416445,
+          "Risk": 0,
+          "Business_Application_Value": 0.9841234190389514,
+          "Application_Maturity": 0.9328143484890461,
+          "Application_Performance": 0,
+          "BU": "BU39",
+          "bunum": 539
+        }, {
+          "bupath": "534.",
+          "Cost": 3.3357573207467794,
+          "Risk": 0,
+          "Business_Application_Value": 4.775354894809425,
+          "Application_Maturity": 1.7967675952240825,
+          "Application_Performance": 0,
+          "BU": "BU34",
+          "bunum": 534
+        }, {
+          "bupath": "565.",
+          "Cost": 0.031290510669350624,
+          "Risk": 0,
+          "Business_Application_Value": 1.8489086301997304,
+          "Application_Maturity": 3.0957962945103645,
+          "Application_Performance": 0,
+          "BU": "BU65",
+          "bunum": 565
+        }, {
+          "bupath": "501.",
+          "Cost": 0.04368521738797426,
+          "Risk": 0,
+          "Business_Application_Value": 1.2141002481803298,
+          "Application_Maturity": 3.3664672635495663,
+          "Application_Performance": 0,
+          "BU": "BU1",
+          "bunum": 501
+        }, {
+          "bupath": "503.",
+          "Cost": 0.9233781043440104,
+          "Risk": 0,
+          "Business_Application_Value": 4.503714758902788,
+          "Application_Maturity": 2.870698398910463,
+          "Application_Performance": 0,
+          "BU": "BU3",
+          "bunum": 503
+        }, {
+          "bupath": "546.",
+          "Cost": 2.1618501748889685,
+          "Risk": 0,
+          "Business_Application_Value": 0.8077828679233789,
+          "Application_Maturity": 4.893697225488722,
+          "Application_Performance": 0,
+          "BU": "BU46",
+          "bunum": 546
+        }, {
+          "bupath": "548.",
+          "Cost": 0.0143771106377244,
+          "Risk": 0,
+          "Business_Application_Value": 4.274829751811922,
+          "Application_Maturity": 1.953564384020865,
+          "Application_Performance": 0,
+          "BU": "BU48",
+          "bunum": 548
+        }, {
+          "bupath": "506.",
+          "Cost": 3.9347892301157117,
+          "Risk": 0,
+          "Business_Application_Value": 0.15135595574975014,
+          "Application_Maturity": 4.526065746322274,
+          "Application_Performance": 0,
+          "BU": "BU6",
+          "bunum": 506
+        }, {
+          "bupath": "551.",
+          "Cost": 4.90963842254132,
+          "Risk": 0,
+          "Business_Application_Value": 1.7750803800299764,
+          "Application_Maturity": 2.5712921749800444,
+          "Application_Performance": 0,
+          "BU": "BU51",
+          "bunum": 551
+        }, {
+          "bupath": "505.",
+          "Cost": 3.5322218108922243,
+          "Risk": 0,
+          "Business_Application_Value": 3.264500694349408,
+          "Application_Maturity": 2.0399651443585753,
+          "Application_Performance": 0,
+          "BU": "BU5",
+          "bunum": 505
+        }, {
+          "bupath": "589.",
+          "Cost": 1.450324789620936,
+          "Risk": 0,
+          "Business_Application_Value": 4.404389886185527,
+          "Application_Maturity": 4.701891401782632,
+          "Application_Performance": 0,
+          "BU": "BU89",
+          "bunum": 589
+        }, {
+          "bupath": "520.",
+          "Cost": 4.564692876301706,
+          "Risk": 0,
+          "Business_Application_Value": 0.19289493095129728,
+          "Application_Maturity": 1.9921503774821758,
+          "Application_Performance": 0,
+          "BU": "BU20",
+          "bunum": 520
+        }, {
+          "bupath": "2.",
+          "Cost": 4.177185506559908,
+          "Risk": 0,
+          "Business_Application_Value": 1.4907033881172538,
+          "Application_Maturity": 3.9498756173998117,
+          "Application_Performance": 0,
+          "BU": "Business Unit2",
+          "bunum": 2
+        }, {
+          "bupath": "522.",
+          "Cost": 4.5666651939973235,
+          "Risk": 0,
+          "Business_Application_Value": 0.08732059504836798,
+          "Application_Maturity": 2.0623818458989263,
+          "Application_Performance": 0,
+          "BU": "BU22",
+          "bunum": 522
+        }, {
+          "bupath": "558.",
+          "Cost": 0.3240470262244344,
+          "Risk": 0,
+          "Business_Application_Value": 2.2740308986976743,
+          "Application_Maturity": 4.910986651666462,
+          "Application_Performance": 0,
+          "BU": "BU58",
+          "bunum": 558
+        }, {
+          "bupath": "528.",
+          "Cost": 4.4434590777382255,
+          "Risk": 0,
+          "Business_Application_Value": 4.312565932050347,
+          "Application_Maturity": 3.734256085008383,
+          "Application_Performance": 0,
+          "BU": "BU28",
+          "bunum": 528
+        }, {
+          "bupath": "504.",
+          "Cost": 0.3922229306772351,
+          "Risk": 0,
+          "Business_Application_Value": 2.547886772081256,
+          "Application_Maturity": 2.8384186001494527,
+          "Application_Performance": 0,
+          "BU": "BU4",
+          "bunum": 504
+        }, {
+          "bupath": "507.",
+          "Cost": 0.8757777977734804,
+          "Risk": 0,
+          "Business_Application_Value": 0.01678642351180315,
+          "Application_Maturity": 4.111000942066312,
+          "Application_Performance": 0,
+          "BU": "BU7",
+          "bunum": 507
+        }, {
+          "bupath": "597.",
+          "Cost": 0.437033767811954,
+          "Risk": 0,
+          "Business_Application_Value": 4.032824886962771,
+          "Application_Maturity": 2.757237423211336,
+          "Application_Performance": 0,
+          "BU": "BU97",
+          "bunum": 597
+        }, {
+          "bupath": "518.",
+          "Cost": 2.400787379592657,
+          "Risk": 0,
+          "Business_Application_Value": 1.0849317675456405,
+          "Application_Maturity": 2.6117529021576047,
+          "Application_Performance": 0,
+          "BU": "BU18",
+          "bunum": 518
+        }, {
+          "bupath": "536.",
+          "Cost": 1.677196598611772,
+          "Risk": 0,
+          "Business_Application_Value": 4.712237399071455,
+          "Application_Maturity": 3.1093244766816497,
+          "Application_Performance": 0,
+          "BU": "BU36",
+          "bunum": 536
+        }, {
+          "bupath": "541.",
+          "Cost": 0.13844231143593788,
+          "Risk": 0,
+          "Business_Application_Value": 2.978234845213592,
+          "Application_Maturity": 4.84451177995652,
+          "Application_Performance": 0,
+          "BU": "BU41",
+          "bunum": 541
+        }, {
+          "bupath": "567.",
+          "Cost": 3.8114947732537985,
+          "Risk": 0,
+          "Business_Application_Value": 2.1362638566643,
+          "Application_Maturity": 0.029806611128151417,
+          "Application_Performance": 0,
+          "BU": "BU67",
+          "bunum": 567
+        }, {
+          "bupath": "578.",
+          "Cost": 0.7987214811146259,
+          "Risk": 0,
+          "Business_Application_Value": 4.718308965675533,
+          "Application_Maturity": 3.7827256321907043,
+          "Application_Performance": 0,
+          "BU": "BU78",
+          "bunum": 578
+        }, {
+          "bupath": "547.",
+          "Cost": 2.148148794658482,
+          "Risk": 0,
+          "Business_Application_Value": 4.869462447240949,
+          "Application_Maturity": 1.472013471648097,
+          "Application_Performance": 0,
+          "BU": "BU47",
+          "bunum": 547
+        }, {
+          "bupath": "508.",
+          "Cost": 2.6690638018772006,
+          "Risk": 0,
+          "Business_Application_Value": 2.97779421787709,
+          "Application_Maturity": 3.46815490629524,
+          "Application_Performance": 0,
+          "BU": "BU8",
+          "bunum": 508
+        }, {
+          "bupath": "596.",
+          "Cost": 2.3451470769941807,
+          "Risk": 0,
+          "Business_Application_Value": 2.86368275526911,
+          "Application_Maturity": 3.4940203139558434,
+          "Application_Performance": 0,
+          "BU": "BU96",
+          "bunum": 596
+        }, {
+          "bupath": "514.",
+          "Cost": 1.1656322795897722,
+          "Risk": 0,
+          "Business_Application_Value": 4.276748639531434,
+          "Application_Maturity": 4.143032473511994,
+          "Application_Performance": 0,
+          "BU": "BU14",
+          "bunum": 514
+        }, {
+          "bupath": "517.",
+          "Cost": 0.32025319058448076,
+          "Risk": 0,
+          "Business_Application_Value": 4.126829556189477,
+          "Application_Maturity": 1.3069674605503678,
+          "Application_Performance": 0,
+          "BU": "BU17",
+          "bunum": 517
+        }, {
+          "bupath": "524.",
+          "Cost": 0.47294903080910444,
+          "Risk": 0,
+          "Business_Application_Value": 2.29253021068871,
+          "Application_Maturity": 1.2618921557441354,
+          "Application_Performance": 0,
+          "BU": "BU24",
+          "bunum": 524
+        }, {
+          "bupath": "532.",
+          "Cost": 2.3614697717130184,
+          "Risk": 0,
+          "Business_Application_Value": 1.5626059519127011,
+          "Application_Maturity": 2.374919862486422,
+          "Application_Performance": 0,
+          "BU": "BU32",
+          "bunum": 532
+        }, {
+          "bupath": "591.",
+          "Cost": 0.22650628816336393,
+          "Risk": 0,
+          "Business_Application_Value": 4.8491098172962666,
+          "Application_Maturity": 1.6305451840162277,
+          "Application_Performance": 0,
+          "BU": "BU91",
+          "bunum": 591
+        }, {
+          "bupath": "513.",
+          "Cost": 0.38621665444225073,
+          "Risk": 0,
+          "Business_Application_Value": 1.7937147337943316,
+          "Application_Maturity": 0.4466372961178422,
+          "Application_Performance": 0,
+          "BU": "BU13",
+          "bunum": 513
+        }, {
+          "bupath": "562.",
+          "Cost": 1.208596401847899,
+          "Risk": 0,
+          "Business_Application_Value": 2.937163128517568,
+          "Application_Maturity": 4.427214083261788,
+          "Application_Performance": 0,
+          "BU": "BU62",
+          "bunum": 562
+        }, {
+          "bupath": "577.",
+          "Cost": 0.7542894035577774,
+          "Risk": 0,
+          "Business_Application_Value": 2.1498128352686763,
+          "Application_Maturity": 0.4155220463871956,
+          "Application_Performance": 0,
+          "BU": "BU77",
+          "bunum": 577
+        }, {
+          "bupath": "585.",
+          "Cost": 4.512687614187598,
+          "Risk": 0,
+          "Business_Application_Value": 0.10275944136083126,
+          "Application_Maturity": 3.353292588144541,
+          "Application_Performance": 0,
+          "BU": "BU85",
+          "bunum": 585
+        }, {
+          "bupath": "583.",
+          "Cost": 1.3707785261794925,
+          "Risk": 0,
+          "Business_Application_Value": 0.09459156077355146,
+          "Application_Maturity": 2.3318942124024034,
+          "Application_Performance": 0,
+          "BU": "BU83",
+          "bunum": 583
+        }, {
+          "bupath": "588.",
+          "Cost": 3.1832034001126885,
+          "Risk": 0,
+          "Business_Application_Value": 1.9272441510111094,
+          "Application_Maturity": 0.907942415215075,
+          "Application_Performance": 0,
+          "BU": "BU88",
+          "bunum": 588
+        }, {
+          "bupath": "512.",
+          "Cost": 1.9843926606699824,
+          "Risk": 0,
+          "Business_Application_Value": 3.6980143561959267,
+          "Application_Maturity": 2.6103265676647425,
+          "Application_Performance": 0,
+          "BU": "BU12",
+          "bunum": 512
+        }, {
+          "bupath": "525.",
+          "Cost": 3.293158756569028,
+          "Risk": 0,
+          "Business_Application_Value": 4.9218353955075145,
+          "Application_Maturity": 4.943011947907507,
+          "Application_Performance": 0,
+          "BU": "BU25",
+          "bunum": 525
+        }, {
+          "bupath": "564.",
+          "Cost": 3.4971041698008776,
+          "Risk": 0,
+          "Business_Application_Value": 3.2624521991238,
+          "Application_Maturity": 3.5829913429915905,
+          "Application_Performance": 0,
+          "BU": "BU64",
+          "bunum": 564
+        }, {
+          "bupath": "569.",
+          "Cost": 1.1630102107301354,
+          "Risk": 0,
+          "Business_Application_Value": 4.442562009207904,
+          "Application_Maturity": 2.853819662705064,
+          "Application_Performance": 0,
+          "BU": "BU69",
+          "bunum": 569
+        }, {
+          "bupath": "581.",
+          "Cost": 1.4798337407410145,
+          "Risk": 0,
+          "Business_Application_Value": 3.988183932378888,
+          "Application_Maturity": 1.0040084412321448,
+          "Application_Performance": 0,
+          "BU": "BU81",
+          "bunum": 581
+        }, {
+          "bupath": "595.",
+          "Cost": 3.79730308894068,
+          "Risk": 0,
+          "Business_Application_Value": 0.8908037701621652,
+          "Application_Maturity": 1.3060243055224419,
+          "Application_Performance": 0,
+          "BU": "BU95",
+          "bunum": 595
+        }, {
+          "bupath": "573.",
+          "Cost": 3.2442557578906417,
+          "Risk": 0,
+          "Business_Application_Value": 4.21216731891036,
+          "Application_Maturity": 4.928022562526166,
+          "Application_Performance": 0,
+          "BU": "BU73",
+          "bunum": 573
+        }, {
+          "bupath": "5.",
+          "Cost": 4.198559247888625,
+          "Risk": 0,
+          "Business_Application_Value": 3.8941791094839573,
+          "Application_Maturity": 3.981656990945339,
+          "Application_Performance": 0,
+          "BU": "Business Unit1",
+          "bunum": 5
+        }, {
+          "bupath": "593.",
+          "Cost": 1.7248889524489641,
+          "Risk": 0,
+          "Business_Application_Value": 0.49750084057450294,
+          "Application_Maturity": 1.3107632007449865,
+          "Application_Performance": 0,
+          "BU": "BU93",
+          "bunum": 593
+        }, {
+          "bupath": "554.",
+          "Cost": 3.5484028048813343,
+          "Risk": 0,
+          "Business_Application_Value": 4.9723642179742455,
+          "Application_Maturity": 2.8854065714403987,
+          "Application_Performance": 0,
+          "BU": "BU54",
+          "bunum": 554
+        }, {
+          "bupath": "572.",
+          "Cost": 1.2113525904715061,
+          "Risk": 0,
+          "Business_Application_Value": 1.2618971522897482,
+          "Application_Maturity": 2.4330487521365285,
+          "Application_Performance": 0,
+          "BU": "BU72",
+          "bunum": 572
+        }, {
+          "bupath": "540.",
+          "Cost": 0.7309006853029132,
+          "Risk": 0,
+          "Business_Application_Value": 0.8822565479204059,
+          "Application_Maturity": 2.910132328979671,
+          "Application_Performance": 0,
+          "BU": "BU40",
+          "bunum": 540
+        }]
+      };
+    }
+  </script>
+</body>
+
+</html>
